@@ -1,11 +1,21 @@
 import json
 import os
+import re 
+from dotenv import load_dotenv
+
+
+load_dotenv()
+
+author = os.getenv('AUTHOR')
+user_id = os.getenv('USER_ID')
+path_rpa_console = os.getenv('PATH_RPA_CONSOLE')
+ms_console_parent = os.getenv('MS_CONSOLE_PARENT')
 
 xml_template = '''<?xml version="1.0" encoding="UTF-16"?>
 <Task version="1.2" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
   <RegistrationInfo>
     <Date>2024-08-26T21:27:41.7160271</Date>
-    <Author>IEDCC10\\iedcc_10</Author>
+    <Author>{author}</Author>
     <URI>\\PowerAutomate\\RPACordash\\{nama_file}</URI>
   </RegistrationInfo>
   <Triggers>
@@ -19,7 +29,7 @@ xml_template = '''<?xml version="1.0" encoding="UTF-16"?>
   </Triggers>
   <Principals>
     <Principal id="Author">
-      <UserId>S-1-5-21-611098785-3368896855-1873054752-1003</UserId>
+      <UserId>{user_id}</UserId>
       <LogonType>InteractiveToken</LogonType>
       <RunLevel>HighestAvailable</RunLevel>
     </Principal>
@@ -45,12 +55,15 @@ xml_template = '''<?xml version="1.0" encoding="UTF-16"?>
   </Settings>
   <Actions Context="Author">
     <Exec>
-      <Command>"C:\\Program Files\\WindowsApps\\Microsoft.PowerAutomateDesktop_11.2407.242.0_x64__8wekyb3d8bbwe\\PAD.Console.Host.exe"</Command>
-      <Arguments>{link}</Arguments>
+      <Command>"{path_rpa_console}"</Command>
+      <Arguments>{ms_console_parent}&amp;workflowid={workflowid}&amp;source=Other</Arguments>
     </Exec>
   </Actions>
 </Task>
 '''
+
+def sanitize_filename(filename):
+    return re.sub(r'[<>:"/\\|?*]', '_', filename)
 
 def create_xml_from_json(data):
     if not os.path.exists('data'):
@@ -58,17 +71,27 @@ def create_xml_from_json(data):
 
     for item in data:
         nama_file = item.get('nama_file')
-        link = item.get('link').replace('&', '&amp;')
+        workflowid = item.get('workflowid')
         start_time = item.get('start_time')
 
-        xml_content = xml_template.format(nama_file=nama_file, link=link, start_time=start_time)
+        clean_nama_file = sanitize_filename(nama_file)
 
-        file_name = f"data/{nama_file}.xml"
+        xml_content = xml_template.format(
+            author=author,
+            user_id=user_id,
+            path_rpa_console=path_rpa_console,
+            ms_console_parent=ms_console_parent,
+            nama_file=clean_nama_file,
+            workflowid=workflowid,
+            start_time=start_time
+        )
+
+        file_name = f"data/{clean_nama_file}.xml"
         with open(file_name, 'w', encoding='utf-16') as file:
             file.write(xml_content)
         print(f"File {file_name} telah dibuat.")
 
-with open('data/list_flow.json', 'r') as json_file:
+with open('data/list_flow_cordash.json', 'r') as json_file:
     json_data = json.load(json_file)
     
 create_xml_from_json(json_data)
